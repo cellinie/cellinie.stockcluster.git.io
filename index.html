@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Clustering with K-Means & PCA</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+       
+        * {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background:#b0e0f3;
+            
+        }
+        .container {
+            margin-left: 240px;
+            background-color: #badeec;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .title {
+            background-color: #476fcc;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .section-title {
+            color: #4772de;
+            margin-top: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .table-of-contents {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 220px;
+            background-color: #76a6e0;
+            border-right: 1px solid #a6beef;
+            padding: 20px;
+            padding-right: 0px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .table-of-contents h2 {
+            color: #050329;
+            margin-bottom: 10px;
+        }
+        .table-of-contents ul {
+            list-style: none;
+            padding: 0;
+        }
+        .table-of-contents ul li {
+            margin: 10px 0;
+            position: relative;
+        }
+        .table-of-contents ul li ul {
+            display: none;
+            list-style: none;
+            padding: 0;
+            margin: 0 0 0 10px;
+        }
+        .table-of-contents ul li a {
+            color: #ffffff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .table-of-contents ul li a:hover {
+            color: #314dc1;
+        }
+        .table-of-contents .dropdown-toggle::after {
+            content: '\25BC'; /* Down arrow */
+            position: absolute;
+            right: 0;
+            top: 0;
+            font-size: 0.8em;
+            padding-right: 10px;
+            transition: transform 0.3s ease;
+        }
+        .table-of-contents .dropdown-toggle.active::after {
+            transform: rotate(-180deg); /* Up arrow */
+        }
+        .empathy-map {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .empathy-map div {
+            width: 23%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .empathy-map .header {
+            font-weight: bold;
+            background-color: #517dfb;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            border-radius: 8px 8px 0 0;
+        }
+        .link {
+            color: #517dfb;
+            text-decoration: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        .fade-in {
+            animation: fadeIn 1s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .slide-in {
+            animation: slideIn 0.5s ease-in-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll('.dropdown-toggle').forEach(function(toggle) {
+                toggle.addEventListener('click', function() {
+                    const sublist = toggle.nextElementSibling;
+                    if (sublist.style.display === "none" || sublist.style.display === "") {
+                        sublist.style.display = "block";
+                        toggle.classList.add('active');
+                    } else {
+                        sublist.style.display = "none";
+                        toggle.classList.remove('active');
+                    }
+                });
+                // Ensure all dropdown menus start closed
+                toggle.nextElementSibling.style.display = "none";
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="table-of-contents">
+        <h2>Table of Contents</h2>
+        <ul>
+            <li><a href="#abstract">Abstract</a></li>
+            <li><a href="#acknowledgments">Acknowledgments</a></li>
+            <li class="dropdown-toggle">Project Overview</li>
+            <ul>
+                <li><a href="#objective">Objective</a></li>
+                <li><a href="#data-cleaning">Data Cleaning and Preprocessing</a></li>
+                <li><a href="#dimensionality-reduction">Dimensionality Reduction</a></li>
+                <li><a href="#clustering-algorithm">Clustering Algorithm</a></li>
+                <li><a href="#cluster-interpretation">Cluster Interpretation</a></li>
+                <li><a href="#financial-findings">Financial Findings</a></li>
+                <li><a href="#cluster-characteristics">Cluster Characteristics</a></li>
+            </ul>
+            <li><a href="#why-kmeans">Why K-Means?</a></li>
+            <li class="dropdown-toggle">The Math Behind the Model</li>
+            <ul>
+                <li><a href="#clustering-algorithm1">Clustering: K-Means Algorithm</a></li>
+                <li><a href="#pca">Dimensionality Reduction: Principal Component Analysis (PCA)</a></li>
+            </ul>
+            <li class="dropdown-toggle">Data Preparation</li>
+            <ul>
+                <li><a href="#restricting-attributes">Restricting Attributes from 46 to 3</a></li>
+                <li><a href="#finding-best-metrics">Finding the Best 3 Metrics</a></li>
+            </ul>
+            <li><a href="#data-cleaning1">Data Cleaning</a></li>
+            <li><a href="#data-preprocessing">Data Preprocessing: Data Scaling and Visualization</a></li>
+            <li class="dropdown-toggle">Building the Model: <br>K-Means Algorithm</li>
+            <ul>
+                <li><a href="#finding-optimal-clusters">Finding the Optimal Number of Clusters Using the Elbow Curve Method</a></li>
+                <li><a href="#scatter-plot">Scatter Plot for the Clusters</a></li>
+            </ul>
+            
+        
+            <li><a href="#model-evaluation">Model Evaluation</a></li>
+            <li><a href="#usage-of-clustering">Usage of the Clustering</a></li>
+            <li><a href="#conclusion">Conclusion</a></li>
+        </ul>
+    </div>
+
+    <div class="container fade-in">
+        <div class="title slide-in">
+            <h1>Stock Clustering with K-Means & PCA</h1>
+        </div>
+
+        <div id="abstract" class="section">
+            <h2 class="section-title">Abstract</h2>
+            <p>Imagine we are given a massive dataset containing various stocks with different financial metrics. Portfolio managers often need to devise strategies to build risk-adjusted portfolios that minimize risk for a given level of return. To achieve this, they must select stocks that are either uncorrelated with each other or find similar stocks to gain adequate exposure to specific market segments. In this context, we use an unsupervised learning method to analyze unlabeled data. To better understand the needs and motivations of a Financial Analyst, let's explore an Empathy Map:</p>
+
+            <div class="empathy-map">
+                <img src="img/Picture1.jpg" alt="">
+            </div>
+
+            <p>By understanding the Financial Analyst's perspective, we can tailor our approach to ensure our unsupervised learning method effectively supports their goals of building optimized, diversified portfolios.</p>
+        </div>
+
+        <div id="acknowledgments" class="section">
+            <h2 class="section-title">Acknowledgments</h2>
+            <p>The data is imported in the form of .csv file representing 5222 TD Ameritrade API stock symbols that were gathered from a GitHub repository run by areed1192. The file can be found here: <a href="https://github.com/areed1192/sigma_coding_youtube/blob/master/python/python-data-science/machine-learning/k-means/stock_data.csv" class="link">GitHub Repository</a></p>
+        </div>
+
+        <div id="project-overview" class="section">
+            <h2 class="section-title">Project Overview</h2>
+            <p>In this section, I will provide a quick run-through of the key steps and findings from the project.</p>
+            <h3 id="objective">Objective</h3>
+            <p>The primary aim of this project was to cluster stocks based on key financial metrics (ROI, ROE, ROA) to facilitate the creation of a diversified investment portfolio.</p>
+            <h3 id="data-cleaning">Data Cleaning and Preprocessing</h3>
+            <p><strong>Data Cleaning:</strong> Outliers were removed using the standard deviation method to ensure a more robust dataset, focusing on the most reliable data points.</p>
+            <p><strong>Normalization:</strong> Financial data was normalized using the RobustScaler to mitigate the impact of differing scales among the metrics, enhancing the clustering performance.</p>
+            <p><strong>Filtering Process:</strong> The benchmarks used for ROI, ROE, and ROA (around 40, 30, and 30 respectively) significantly influence the clustering results. Changing these benchmarks can lead to different stocks being included or excluded from the dataset, affecting the overall clustering outcome.</p>
+            <h3 id="dimensionality-reduction">Dimensionality Reduction</h3>
+            <p><strong>PCA:</strong> Principal Component Analysis reduced the dimensionality from three metrics to two principal components, retaining 98.35% of the variance. This step simplified the clustering process and visualization.</p>
+            <h3 id="clustering-algorithm">Clustering Algorithm</h3>
+            <p><strong>K-Means:</strong> Initially, the K-Means algorithm was used for clustering due to its simplicity and efficiency. By the end, the K-Means++ algorithm was implemented due to its superior centroid initialization compared to standard K-Means, resulting in faster convergence.</p>
+            <p><strong>Optimal Number of Clusters:</strong> Determined using the elbow method and silhouette scores, three clusters were chosen as the optimal number.</p>
+            <h3 id="cluster-interpretation">Cluster Interpretation</h3>
+            <p><strong>Cluster Analysis:</strong> Stocks were grouped into three clusters based on their financial performance:</p>
+            <ul>
+                <li><strong>Cluster 1 (Blue):</strong> Companies that perform poorly across all three metrics (ROI, ROE, ROA). These stocks might be undervalued but also carry higher risk.</li>
+                <li><strong>Cluster 2 (Purple):</strong> Average-performing companies that might excel in some metrics while lagging in others. These are typically stable companies with moderate risk and return profiles.</li>
+                <li><strong>Cluster 3 (Yellow):</strong> High-performing companies excelling across all three metrics. These stocks are generally considered strong performers with potentially higher returns but may be overvalued.</li>
+            </ul>
+            <h3 id="financial-findings">Financial Findings</h3>
+            <p><strong>ROI, ROE, and ROA Correlation:</strong> These metrics are critical indicators of a company's profitability and efficiency in using its assets and equity. Higher values in these metrics generally indicate better financial health and management efficiency.</p>
+            <h3 id="cluster-characteristics">Cluster Characteristics</h3>
+            <ul>
+                <li><strong>Cluster 1 (Underperformers):</strong> This may include companies in distress or with poor management efficiency. They may be potential turnaround opportunities or represent high-risk investments.</li>
+                <li><strong>Cluster 2 (Average Performers):</strong> Likely consists of well-established companies with stable but not exceptional performance. They can be considered for conservative investment strategies.</li>
+                <li><strong>Cluster 3 (Top Performers):</strong> Represents companies with robust financial health and superior management effectiveness. These companies are typically market leaders in their sectors.</li>
+            </ul>
+        </div>
+
+        <div id="why-kmeans" class="section">
+            <h2 class="section-title">Why K-Means?</h2>
+            <p>K-Means is straightforward to implement and understand. More complex algorithms like Gaussian Mixture Models (GMM) can have higher computational costs. GMM, for example, involves fitting a probabilistic model and may require more computational resources and time. K-Means also works well with large datasets and is effective when clusters are spherical and equally sized, which is often a reasonable assumption for financial metrics. While Gaussian Mixture Models are more flexible regarding cluster shape, they can be overkill if the data does not exhibit significant deviations from spherical clusters.</p>
+        </div>
+
+        <div id="math-behind-model" class="section">
+            <h2 class="section-title">The Math Behind the Model</h2>
+            <h3 id="clustering-algorithm1">1. Clustering: K-Means Algorithm</h3>
+            <p><strong>Definition:</strong></p>
+            <p>K-Means clustering is a method of vector quantization, originally from signal processing, that aims to partition ‘n’ observations into ‘k’ clusters in which each observation belongs to the cluster with the nearest mean. K-Means minimizes within-cluster variances (squared Euclidean distances). Broken into steps, the algorithm is executed in the following order:</p>
+            <ul>
+                <li>First, choose K–the number of clusters. Then randomly put ‘K’ feature vectors, called centroids, into the feature space.</li>
+                <li>Next, compute the distance from each sample ‘x’ to each centroid ‘c’ using some metric like the Euclidean distance. Then assign the closest centroid to each sample.</li>
+                <li>For each centroid, calculate the average feature vector of the samples labeled with it. These average feature vectors become the new locations of the centroids.</li>
+                <li>Recompute the distance from each sample to each centroid, modify the assignment, and repeat the procedure until the assignments don’t change after centroid locations are recomputed. In other words, repeat these steps until:
+                    <ul>
+                        <li>The sum of the distances is minimized (converges to a local minimum)</li>
+                        <li>The maximum number of iterations has been reached</li>
+                    </ul>
+                </li>
+                <li>Finally, we conclude the clustering with a list of assignments of centroids IDs to the samples.</li>
+            </ul>
+            <h3>Optimization Perspective</h3>
+            <p>Given a dataset \(x_i\) for \(i=1\) to \(n\), cluster centers \(c_j\) for \(j=1\) to \(k\) and assignment \(r\). The goal is to minimize the sum of squared distances of data points to their assigned cluster centers.</p>
+            <p>$$
+                \min_{c, r} J(c, r) = \min_{c, r} \sum_{i=1}^n \sum_{k=1}^K r_{ik} (x_i - c_k)^2
+            $$</p>
+            <p>Subject to conditions \(r \in \{0,1\}^{n \times K}\) and \(\sum_{k=1}^K r_{ik}=1\)</p>
+            <h3>Assignment step:</h3>
+            <p>Given ‘c’, update assignment ‘r’ by solving:</p>
+            <p>$$
+                \min_{r} \sum_{i=1}^n \sum_{k=1}^K r_{ik} (x_i - c_k)^2
+            $$</p>
+            <p>Subject to conditions \(r_i \in \{0,1\}^{n \times K}\) and \(\sum_{k=1}^K r_{ik}=1\)</p>
+            <p>Solution: \(k* = \arg\min_{k=1}^K (x_i - c_k)^2\) and \(r_{ik*} = 1\). This solution assigns \(x_i\) to the nearest cluster.</p>
+            <h3>Refitting step:</h3>
+            <p>Given ‘r’, update ‘c’ by solving:</p>
+            <p>$$
+                \min_{c} \sum_{i=1}^n \sum_{k=1}^K r_{ik} (x_i - c_k)^2
+            $$</p>
+            <p>where \(c_i, …, c_k\) can be optimized independently:</p>
+            <p>$$
+                \min_{c_k} \sum_{i=1}^n r_{ik} (x_i - c_k)^2
+            $$</p>
+            <p>By solving the first derivation, the equation becomes:</p>
+            <p>$$
+                2 \sum_{i=1}^n r_{ik} (x_i - c_k) = 0
+            $$</p>
+            <p>$$
+                c_k = \frac{\sum_{i=1}^n r_{ik} x_i}{\sum_{i=1}^n r_{ik}}
+            $$</p>
+            <p>where \(\sum_{i=1}^n r_{ik} x_i\) denotes the summation of all samples of the \(k\)-th cluster and \(\sum_{i=1}^n r_{ik}\) is the number of samples assigned to the \(k\)-th cluster.</p>
+            <h3>Convergence property</h3>
+            <h3>Why K-Means converge?</h3>
+            <p><strong>Convergence guarantee:</strong> Whenever an assignment is changed, the sum squared distances \(J\) of data points from their assigned cluster centers is reduced. Whenever a cluster center is moved, \(J\) is reduced.</p>
+            <p><strong>Test for convergence:</strong> If the assignments do not change in the assignment step, we have converged (to at least a local minimum).</p>
+            <p><strong>Local minimum of K-Means:</strong> Since the objective function of \(J\) is non-convex, the coordinate descent on \(J\) is not guaranteed to converge to the global minimum. There is nothing to prevent K-Means from getting stuck at a local minimum, and sometimes it may get stuck at a poor local minimum. We could run K-Means with multiple random initializations and pick the one with the lowest objective value as the final clustering result.</p>
+            <h3 id="pca">2. Dimensionality Reduction: Principal Component Analysis (PCA)</h3>
+            <h3>Definition: Dimensionality Reduction</h3>
+            <p>The goal of dimensionality reduction is to find a \(u\) (basis of a subspace) in low dimension that best reflects the original data. PCA is one typical unsupervised learning dimensionality reduction method. The benefits of reducing the dimension are to visualize data easier, alleviate overfitting, and reduce the computational cost of high dimensional data. The basic idea is to find a lower-dimension space to represent the high-dimension data and find the direction of the hyperplane given the data. Dimensionality reduction can be represented with some mathematical notations below:</p>
+            <p><strong>Inputs:</strong> given a dataset \(D = \{x^{(1)}, ..., x^{(N)}\} \subset \mathbb{R}^D\) with \(D\) being the original dimension.</p>
+            <p><strong>Goal:</strong> find a \(K\)-dimensional (\(K < D\)) subspace \(S\) which consists of \(K\) orthonormal basis vectors \(u_k\) for \(k = 1, ..., K\) and \(u_i^T u_j = 0\) for \(i \neq j\) while \(u_i^T u_i = 1 \forall i\). Hence when projecting all points in \(D\) onto \(S\), the structure of the original data is well preserved.</p>
+            <p><strong>Outputs:</strong> the basis vectors \(u_k\) for \(k = 1, ..., K\) and a new representation \(D' = \{z^{(1)}, ..., z^{(N)}\} \subset \mathbb{R}^K\).</p>
+            <h3>Derivation of PCA</h3>
+            <p>Imagine there is a 2-dimensional data set \(D = \{x^{(1)}, ..., x^{(N)}\}\) where \(x^{(N)} \in \mathbb{R}^2\).</p>
+            <img src="img/Picture2.jpg" alt="">
+            <p>The goal is to find a one-dimensional sub-space \(S = u_1 \in \mathbb{R}^2\) such that when projecting each point \(x^{(N)}\) onto this subspace, we obtain the corresponding reconstruction \(x^{(n)}\) and the representation \(z\). We aim to find the \(u\) such that data \(x^{(1)}, ..., x^{(N)}\) distances to the \(u_1\) is minimum and orientation have a maximum variance.</p>
+            <h3>Derivation I: Maximum Variance</h3>
+            <p>$$
+                \max_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || x^{(N)} - \mu ||^2 \text{ where } x = \mu + Uz \text{ and } z = U^T (x - \mu)
+            $$</p>
+            <p>$$
+                \mu = \frac{1}{N} \sum_{n=1}^{N} x^{(N)} = \mu + U \left( \frac{1}{N} \sum_{n=1}^{N} z^{(N)} \right) = \mu + \frac{1}{N} U U^T \sum_{n=1}^{N} (x^{(N)} - \mu) = \mu
+            $$</p>
+            <p>$$
+                \max_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || x^{(N)} - \mu ||^2 = \max_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || x^{(N)} - \mu ||^2
+            $$</p>
+            <p>$$
+                \max_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || Uz^{(N)} ||^2 = \max_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || U^T (x - \mu) ||^2
+            $$</p>
+            <p>$$
+                \max_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} \text{Trace}( U^T (x^{(N)} - \mu) (x^{(N)} - \mu)^T U)
+            $$</p>
+            <h3>Derivation II: Minimal Reconstruction Error</h3>
+            <p>$$
+                \min_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || x^{(N)} - x^{(N)} ||^2 \text{ is equivalent to } \min_{U} U^T U = I \frac{1}{N} \sum_{n=1}^{N} || x^{(N)} - x^{(N)} ||^2
+            $$</p>
+            <p>By the Pythagoras Theorem we get:</p>
+            <img src="img/Picture3.jpg" alt="">
+            <h3>Solution of PCA</h3>
+            <p>By solving the maximum variance problem we can get the solution for PCA:</p>
+            <p>$$
+                \max_{U} \text{Trace}( U^T \Sigma U) = \sum_{k=1}^K U_k^T \Sigma U_k \text{ such that } U^T U = I
+            $$</p>
+            <p>Define \(\Sigma = \frac{1}{N} \sum_{n=1}^{N} (x^{(N)} - \mu) (x^{(N)} - \mu)^T\)</p>
+            <p>$$
+                \max_{U} \text{Trace}( U^T \Sigma U) = \sum_{k=1}^K U_k^T \Sigma U_k \text{ such that } U^T U = I
+            $$</p>
+            <p>By Lagrange \(L(U, \Lambda_k) = -\text{Trace}(U^T U) + \text{Trace}(\Lambda_k^T (I - U^T U))\) where \(\Lambda_k = \text{diag}(\lambda_1, ..., \lambda_k) \in \mathbb{R}^{K \times K}\)</p>
+            <p>Taking the first derivative: \(2 \Sigma U - 2 U \Lambda_k = 0\)</p>
+            <p>$$
+                \Sigma U_k = U_k \lambda_k \text{ where } U_k \text{ is the eigenvector and } \lambda_k \text{ is the eigenvalue for } k = 1, ..., K
+            $$</p>
+            <p>We should pick the top \(K\)-eigenvalues as the optimal solution for \(U\).</p>
+            <h3>The above derivation of the optimal solution is summarized in the following steps:</h3>
+            <p><strong>Step 1:</strong> Calculate the empirical covariance matrix \(\Sigma = \frac{1}{N} \sum_{n=1}^{N} (x^{(N)} - \mu) (x^{(N)} - \mu)^T\)</p>
+            <p><strong>Step 2:</strong> Do SVD Decomposition of \(\Sigma\) to obtain its \(D\) eigenvalues and eigenvectors and rank them from large to small according to the eigenvalues.</p>
+            <p><strong>Step 3:</strong> Pick the top-K eigenvectors to form the matrix \(U = [q_1, ..., q_k] \in \mathbb{R}^{D \times K}\)</p>
+            <p><strong>Step 4:</strong> The new representation of \(x^{(N)}\) is \(U^T (x^{(N)} - \mu)\).</p>
+        </div>
+
+
+        <div id="data-preparation" class="section">
+            <h2 class="section-title">Data Preparation</h2>
+            <h3 id="restricting-attributes">Restricting Attributes from 46 to 3</h3>
+            <p>The given data is seen to have 5222 different stocks and 46 attributes. Technically speaking, we can cluster on all 46 attributes. However, I restrict the number of attributes to 3 to better visualize 3 dimensions of the data. Fewer attributes simplify the model, making it easier to interpret and visualize clusters. The metrics that I choose are return on equity (ROE), return on assets (ROA), and return on investment (ROI).</p>
+            <h3 id="finding-best-metrics">Finding the Best 3 Metrics</h3>
+            <p>According to Zhao & Gao (2020), mature companies or “value stocks” generally have low P/E ratios and high dividend rates. “Growth” companies are companies with broad development prospects but also uncertainties in the future, which have high P/E ratios and low dividend rates. Growth investors seek companies that offer strong earnings growth while value investors seek stocks that appear to be undervalued in the marketplace. However, Tantra et al. (2024) found that the ROA, ROE, and ROI have a significant impact on the value of the company (which in this case is the price to book value (PBV)).</p>
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>Financial Metrics</th>
+                        <th>Formulas</th>
+                        <th>Definitions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ROE</td>
+                        <td>Net Income / Shareholders’ Equity</td>
+                        <td>Shows how well a company manages the capital that shareholders have invested in it. The higher the ROE, the more efficient a company’s management is at generating income and growth from its equity financing.</td>
+                    </tr>
+                    <tr>
+                        <td>ROI</td>
+                        <td>Net Profit / Cost of Investment</td>
+                        <td>Measures the gain or loss generated relative to the investment cost, providing insight into investment efficiency.</td>
+                    </tr>
+                    <tr>
+                        <td>ROA</td>
+                        <td>Net Income / Total Assets</td>
+                        <td>Assesses how efficiently a company’s assets are utilized to generate earnings.</td>
+                    </tr>
+                    <tr>
+                        <td>P/E Ratio</td>
+                        <td>Market Value per Share / EPS</td>
+                        <td>Indicates the market’s expectations of a company’s growth prospects, where higher P/E ratios may indicate expected high growth rates (the company’s stock is overvalued).</td>
+                    </tr>
+                    <tr>
+                        <td>Dividend Yield</td>
+                        <td>Annual Dividends per Share / Current Share Price</td>
+                        <td>Shows how much a company pays out in dividends relative to its share price.</td>
+                    </tr>
+                    <tr>
+                        <td>P/B Ratio</td>
+                        <td>Market Price per Share / Book Value per Share</td>
+                        <td>Compares market value to book value. Value companies have lower P/B ratios while growth companies have higher P/B ratios.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>Comparison Table:</strong></p>
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>Metric Set</th>
+                        <th>Focus</th>
+                        <th>Primary Goal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ROA, ROI, ROE</td>
+                        <td>Operational Efficiency, Profitability</td>
+                        <td>Evaluating Company Financial Health</td>
+                    </tr>
+                    <tr>
+                        <td>P/E, Dividend Yield, PB Ratio</td>
+                        <td>Market Valuation, Investor Expectations</td>
+                        <td>Evaluating Value vs Growth Stocks</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>References:</strong></p>
+            <a href="https://media.neliti.com/media/publications/544096-the-effect-of-roa-roe-and-roi-on-company-2793c1de.pdf">https://media.neliti.com/media/publications/544096-the-effect-of-roa-roe-and-roi-on-company-2793c1de.pdf</a><br>
+            <a href="https://medium.com/@facujallia/stock-classification-using-k-means-clustering-8441f75363de">https://medium.com/@facujallia/stock-classification-using-k-means-clustering-8441f75363de</a>
+            <p>There are many more solid financial metrics, but in this project, I will focus on clustering based on operational efficiency and profitability using the ROA, ROI, and ROE.</p>
+        </div>
+
+        
+
+        <div id="data-cleaning1" class="section">
+            <h2 class="section-title">Data Cleaning</h2>
+            <p><strong>Remove 0 values from the filtered 3 metrics data frame:</strong> After filtering and removing missing values, the total stocks are reduced to 2102 stocks.</p>
+            <p><strong>Remove outliers to prevent extreme data that may significantly impact the result:</strong> Based on comparing the data, I approximate the benchmarks for each ROE, ROA, and ROI to be 40, 30, and 30 respectively. More information can be found from the link below: <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/roe.html" class="link">Link</a></p>
+            <p>The statistical summary can be seen from the table below:</p>
+            <img src="img/Picture4.jpg" alt="">
+            <p>Using 3 standard deviations is a widely accepted practice for outlier removal where outliers can significantly impact the interpretation of clusters. By integrating the probability density function of the normal distribution over the range from (mean - 3std) to (mean + 3std), 99.7% of the data points can be captured, which may give a robust model. Values outside the given range will be considered as outliers.</p>
+            <ul>
+                <li><strong>Return on Equity (ROE):</strong> Mean: 12.59%, Standard Deviation: 8.70%, Range for ±3 std: 12.59% ± (3 * 8.70%) → [-13.52%, 38.69%]</li>
+                <li><strong>Return on Assets (ROA):</strong> Mean: 5.96%, Standard Deviation: 4.58%, Range for ±3 std: 5.96% ± (3 * 4.58%) → [-7.78%, 19.71%]</li>
+                <li><strong>Return on Investment (ROI):</strong> Mean: 7.58%, Standard Deviation: 5.82%, Range for ±3 std: 7.58% ± (3 * 5.82%) → [-9.89%, 25.05%]</li>
+            </ul>
+        </div>
+
+        <div id="data-preprocessing" class="section">
+            <h2 class="section-title">Data Preprocessing: Data Scaling and Visualization</h2>
+            <h3>Robust Scaler</h3>
+            <img src="img/Screenshot 2024-06-10 124401.jpg" alt="">
+            <p>From the 3D plot, k-means clustering may be poor when the data is seen to be dense and they are sensitive to outliers. Hence scaling is needed to normalize the data. Scaling transforms the data so that its numerical values lie within a specific range or follow a certain statistical distribution. One scaling method that may be suitable for this data is the robust scaler as outliers might be possible given the current plot.</p>
+            <h3>Principal Component Analysis (PCA)</h3>
+            <p>PCA is a dimensionality reduction method that is used to reduce the dimension of large datasets by transforming the dataset into a smaller one while maintaining its information. To find the suitable amount of reduced component, the sklearn function of explained_variance_ratio_ can be implemented to explain the percentage of variance by each of the selected numbers of components. [0.88529636, 0.09818477, 0.01651887]</p>
+            <img src="img/Picture5.jpg" alt="">
+            <p>With 1 component, we can explain 98% of the variance. With 2 components, 100% of the variance can be explained. So we can select 2 components while maintaining its maximum variability.The scatter plot can be seen from the graph below:</p>
+            <img src="img/Picture6.jpg" alt="">
+          </div>
+
+        <div id="building-model" class="section">
+            <h2 class="section-title">Building the model: K-means Algorithm</h2>
+            <h3 id="finding-optimal-clusters">Finding the Optimal Number of Clusters Using the Elbow Curve Method</h3>
+            <p>The main idea behind clustering is when we minimize the distance between points in a cluster, it will eventually maximize the distances between clusters. If the within-cluster sum of squares (WCSS) is minimized, the perfect clustering solution may be reached. Some different conditions can reach minimum and maximum WCSS which can be shown in the table below.</p>
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>Number of Observations</th>
+                        <th>Number of Clusters</th>
+                        <th>WCSS</th>
+                        <th>Explanation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>6</td>
+                        <td>6</td>
+                        <td>0</td>
+                        <td>One point in each cluster results in no WCSS</td>
+                    </tr>
+                    <tr>
+                        <td>1000000</td>
+                        <td>1</td>
+                        <td>Maximum</td>
+                        <td>All data points centered in 1 cluster</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>Hence it is not necessary to find the minimum number of clusters. Instead, WCSS needs to be as low as possible while still having a small number of clusters. Using the Elbow Method, the data can be plotted as below.</p>
+            <img src="img/Picture7.jpg" alt="">
+            <p>Initially, there is a rapid change in the metric. But where that metric stays mostly the same is the elbow point. Hence I choose the optimum number to be 3.</p>
+        </div>
+
+        <div id="scatter-plot" class="section">
+            <h2 class="section-title">Scatter Plot for the Clusters</h2>
+            <img src="img/Screenshot 2024-06-10 124452.jpg" alt="">
+            <p>When interpreting the clustering results, companies that perform poorly across all three metrics (ROI, ROE, and ROA) are represented by the blue region. These companies consistently underperform. The purple region represents average-performing companies which might excel in some metrics while lagging in others or perform moderately across all metrics. Lastly, the yellow region denotes the best-performing companies, excelling in all three metrics and consistently outperforming their peers. These companies demonstrate superior financial health and efficiency.</p>
+        </div>
+
+        <div id="optimization-method" class="section">
+            <h2 class="section-title">Optimization Method with K-Means++</h2>
+            <p>kmeanspp = KMeans(n_clusters=3, init='k-means++', random_state=0)</p>
+            <p>K-Means++ provides a better initialization of centroids, leading to better and faster convergence. By starting with centroids that are more spread out, K-Means++ reduces the chances of poor clustering results due to a bad initial choice of centroids.</p>
+            <p>The assignment step for K-Means costs about O(n x k x d), where ‘n’ is the number of points, ‘k’ is the number of clusters, and ‘d’ is the dimension. The refitting step, which recalculates the centroids, costs for O(n x d), and by combining both assignment and refitting, the computational cost of K-Means algorithm is O(T x (n(k + 1)x d)), where ‘T’ is the number of iterations.</p>
+            <p>K-Means++ has some additional step on the initialization where they select the first centroid randomly O(1) and for each of the remaining k-1 centroids:</p>
+            <ul>
+                <li>Compute the distance of each of the n points to the nearest centroid chosen so far</li>
+                <li>Time complexity for each new centroid is O(n)</li>
+                <li>Total time complexity for initialization is O(nkd)</li>
+            </ul>
+            <p>Assignment and Refitting steps follow the same time complexity with K-Means. Hence the total time complexity for K-Means++ is O(T x (n(k+1)d + nkd)). In summary, while the initialization of K-Means++ is more computationally expensive than in standard K-Means, the improved initialization often leads to faster convergence and better clustering results, making it more efficient overall for many practical applications.</p>
+        </div>
+
+
+        <div id="model-evaluation" class="section">
+            <h2 class="section-title">Model Evaluation</h2>
+            <h3>Silhouette Plot</h3>
+            <p>To evaluate the performance of the clustering algorithm, the silhouette plot can be implemented as shown in the graph below.</p>
+            <img src="img/Picture8.jpg" alt="">
+            <p>A silhouette plot is a graphical representation of how well each data point lies within its cluster. The silhouette coefficient values range from -1 to 1, where 1 indicates that the sample is well-matched to its cluster, 0 indicates that the sample is on or very close to the decision boundary between 2 neighboring clusters, and negative values indicate that those samples might have been assigned to the wrong cluster. The red dashed line represents the average silhouette score across all samples. In this case, the average score is 0.5, indicating a moderate, reasonably well-defined with some overlaps.</p>
+            <ul>
+                <li><strong>Cluster 0 (Red):</strong> Most samples have a silhouette coefficient between 0.1 and 0.6 with some lying on negative values. The region is relatively wide and long, indicating a large number of samples. The presence of negative values suggests some misclassification with neighboring clusters.</li>
+                <li><strong>Cluster 1 (Orange):</strong> Most samples have a silhouette coefficient between 0.2 and 0.7. The region is the widest, indicating that the cluster contains the most samples. High silhouette coefficients suggest good separation from other clusters.</li>
+                <li><strong>Cluster 2 (Grey):</strong> Most samples have a silhouette coefficient between 0.3 and 0.8. The region contains the smallest number of samples among other clusters. High silhouette coefficients suggest good separation from other clusters.</li>
+            </ul>
+            <h3>Impact of Filtering Process on Clustering Results</h3>
+            <p><strong>Influence of Benchmarks:</strong> The benchmarks set for ROI, ROE, and ROA significantly impact the clustering results. Different thresholds can lead to variations in the dataset, influencing which stocks are included or excluded. For instance, setting higher benchmarks may filter out more companies, resulting in clusters that are more focused on high-performing stocks. Conversely, lower benchmarks might include a wider range of stocks, resulting in more diverse clusters.</p>
+            <p><strong>Benchmark Sensitivity:</strong> The sensitivity of clustering to these benchmarks highlights the importance of carefully selecting thresholds based on the investment strategy. For example, conservative investors might prefer lower benchmarks to include more stable companies, while aggressive investors might set higher benchmarks to focus on high-growth stocks.</p>
+        </div>
+
+        <div id="usage-of-clustering" class="section">
+            <h2 class="section-title">Usage of the Clustering</h2>
+          
+                <h3>Identify whether the intended stocks are available in the data analysis.</h3>
+                <img src="img/Picture9.jpg" alt="">
+                <h3>Suggest a simple diversified portfolio with randomly selected stocks from each cluster.</h3>
+                <img src="img/Picture10.jpg" alt="">
+                <h3>Make some predictions on new dataset.</h3> 
+                
+           
+            <p>For predicting, the ‘transform’ and ‘predict’ functions are going to be used instead of ‘fit_transform’ and ‘predict’.</p>
+            <ul>
+                <li><strong>‘fit_transform’ vs ‘transform’:</strong> ‘fit_transform’ is when we want to fit the scaler to the data and then transform it. This is done during training. ‘transform’ is used to scale new data using an already fitted scaler. This is what we should use for new data points.</li>
+                <li><strong>‘fit_predict’ vs ‘predict’:</strong> ‘fit_predict’ is used to fit the KMeans model to the data and then predict the cluster. This is done during training. ‘predict’ is used to predict the cluster for new data points using an already fitted KMeans model.</li>
+            </ul>
+            <p>ROE, ROA, and ROI unscaled version:</p>
+            <img src="img/Picture11.jpg" alt="">
+            <p>ROE, ROA, and ROI scaled version:</p>
+            <img src="img/Picture12.jpg" alt="">
+
+        </div>
+
+        <div id="conclusion" class="section">
+            <h2 class="section-title">Conclusion</h2>
+            <p>The clustering project was initiated to address the needs of these stakeholders by providing a systematic way to classify stocks based on key financial metrics (ROE, ROA, and ROI). By understanding these metrics, stakeholders can make more informed investment decisions, achieve better diversification, and ultimately meet their financial goals. The process of filtering data and choosing benchmarks significantly impacts the clustering results, indicating that careful selection of these parameters is essential for achieving the desired investment outcomes. Future improvements could involve integrating additional financial metrics and exploring advanced clustering techniques to further refine the analysis. Adding sector and industry information can also help understand the clustering in the context of market segments.</p>
+        </div>
+    </div>
+</body>
+</html>
